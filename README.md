@@ -1,8 +1,8 @@
 # Manual replicación MySQL
 
-## 1. Replicando el esclavo
+## 1. Replicación Maestro-Esclavo
 
-## Configuración MYSQL Maestro
+### Configuración MYSQL Maestro
 
 
 ```console
@@ -14,7 +14,7 @@ alu5906@maestro2:/etc/mysql/mysql.conf.d$
 
 ```
 
-- Configuramos el fichero `mysql.conf`
+- Configuramos el fichero `mysqld.cnf` para que las máquinas se puedan comunicar correctamente.
 
 ```console
 
@@ -81,13 +81,16 @@ binlog_ignore_db	= test
 
 ```
 
-- Reiniciamos el servicio.
+- Reiniciamos el servicio para establecer los cambios.
 
 ```console
 alu5906@maestro2:~$ sudo systemctl restart mysql.service
 ```
 
-- Entramos a la base de datos de el maestro.
+- Ahora abriremos una consola mysql, en esta vamos a:
+  - Crear una base de datos de prueba que vamos a replicar.
+  - Crear un usuario con permisos de `Replication slave`.
+  - Ejecutar el comando `show master status`, que nos mostrará el fichero con la información log de las bases de datos que queremos replicar.
 
 ```console
 
@@ -137,7 +140,7 @@ alu5906@maestro2:/etc/mysql/mysql.conf.d$
 
 ```
 
-- Configuramos el fichero `mysql.conf`
+- Configuramos el fichero `mysqld.cnf`, en este caso en el servidor que utilizaremos como esclavo, la información necesaria esta al final del siguiente cuadro.
 
 ```console
 
@@ -210,7 +213,7 @@ binlog_ignore_db	= test
 alu5906@maestro2:~$ sudo systemctl restart mysql.service
 ```
 
-- Ahora abrimos una consola `MySQL`
+- Ahora abrimos una consola `MySQL`, esta vamos a crear la base de datos vacía, y ejecutaremos el comando `CHANGE MASTER TO` para vincularla con el master, el contenido del comando se explica en las siguientes líneas.
 
 >- MASTER_HOST=’192.168.0.18′: ip del servidor maestro (master).
 >- MASTER_USER=’usuario-replica’: nombre del usuario utilizado para la >sincronización.
@@ -307,8 +310,11 @@ Master_SSL_Verify_Server_Cert: No
 
 mysql>
 ```
+- Al empezar el esclavo y ejecutar el comando `SHOW SLAVE STATUS \G` vemos por el resultado de algunos parámetros que el servicio esta encendido y a la espera del maestro para actualizar su información.
 
 ## Añadimos contenido a la base de datos "cluster" en el server maestro
+
+- Vamos a conectarnos a la base de datos desde el servidor maestro e insertaremos información.
 
 ```console
 mysql> use cluster;
@@ -329,7 +335,7 @@ mysql>
 
 ![](img/006.png)
 
-- Metemos datos a la tabla de usuarios
+- Metemos datos a la tabla de usuarios.
 
 ![](img/007.png)
 
@@ -344,15 +350,15 @@ mysql>
 
 
 
-## Configuración MASTER a Master
+# 2. Replicación Master a Master
 
 ## Configuración MASTER2
 
-Comprobamos con el comando show master status
+Vamos a reutilizar nuestro esclavo, pero en este caso haremos que sea a su vez el master de su propio master. Comprobamos con el comando show master status que tiene configurado su master.
 
 ![](img/009.png)
 
-Para luego ir al master1 y darle permisos al usuario esclavo.
+- Creamos un usuario con permisos de `replication slave`, con el comando `Show master status` obtendremos la información necesaria para vincularlo con master1.
 
 ```console
 mysql> GRANT REPLICATION SLAVE ON *.* TO 'esclavo'@'172.18.22.1' IDENTIFIED BY '1234';
@@ -372,7 +378,7 @@ mysql> SHOW MASTER STATUS;
 
 ![](img/010.png)
 
-- vamos al master1, tenemos que decirle cual es nuestro servidor maestro y con la ip y el usuario.
+- Abrimos una consola MySQL desde **master1**, tenemos que decirle cual es nuestro servidor maestro haciendo uso del comando `CHANGE MASTER` y con la información obtenida desde el master2.
 
 ```console
 mysql> CHANGE MASTER TO MASTER_HOST='172.18.22.2', MASTER_USER='esclavo', MASTER_PASSWORD='1234', MASTER_LOG_FILE='mysql-bin.000001', MASTER_LOG_POS=784;
@@ -446,8 +452,11 @@ mysql>
 
 ```
 
-Entramos en la base de datos en el servidor master2 y ahora podemos insertar datos a la tabla de usuarios.
+Podemos comprobar que al iniciar a master1 como esclavo y mostrar el estado de la unión nos muestra que esta conectado.
 
+## Entramos en la base de datos en el servidor master2 e insertamos datos
+
+Vamos a comprobar que podemos insertar datos desde master2. (Antes al ser solo esclavo no podía hacer esto.)
 
 ```console
 mysql> INSERT INTO usuarios (id) VALUES(3);
