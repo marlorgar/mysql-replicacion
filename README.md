@@ -475,3 +475,7 @@ mysql> select * from usuarios;
 mysql>
 ```
 ![](img/011.png)
+
+- Comprobamos en el Servidor maestro1 y vemos con una consulta que tenemos el nuevo datos insertado.
+
+![](img/012.png)
